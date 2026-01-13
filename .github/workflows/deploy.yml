@@ -1,0 +1,76 @@
+name: Build and Deploy ZavaStorefront
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'Dockerfile'
+      - '.github/workflows/deploy.yml'
+
+env:
+  AZURE_RESOURCE_GROUP: rg-zavastore-dev-westus3
+  AZURE_LOCATION: westus3
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Get ACR name
+        id: get-acr
+        run: |
+          ACR_NAME=$(az acr list --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query "[0].name" -o tsv)
+          echo "acr_name=$ACR_NAME" >> $GITHUB_OUTPUT
+          echo "ACR Name: $ACR_NAME"
+
+      - name: Build and push image to ACR
+        run: |
+          az acr build \
+            --registry ${{ steps.get-acr.outputs.acr_name }} \
+            --image zavastorefront:${{ github.sha }} \
+            --image zavastorefront:latest \
+            --file Dockerfile \
+            ./src
+
+      - name: Get Web App name
+        id: get-webapp
+        run: |
+          WEBAPP_NAME=$(az webapp list --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query "[0].name" -o tsv)
+          echo "webapp_name=$WEBAPP_NAME" >> $GITHUB_OUTPUT
+          echo "Web App Name: $WEBAPP_NAME"
+
+      - name: Deploy to Azure Web App
+        run: |
+          ACR_LOGIN_SERVER=$(az acr show --name ${{ steps.get-acr.outputs.acr_name }} --query loginServer -o tsv)
+          az webapp config container set \
+            --name ${{ steps.get-webapp.outputs.webapp_name }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --docker-custom-image-name ${ACR_LOGIN_SERVER}/zavastorefront:latest \
+            --docker-registry-server-url https://${ACR_LOGIN_SERVER}
+
+      - name: Restart Web App
+        run: |
+          az webapp restart \
+            --name ${{ steps.get-webapp.outputs.webapp_name }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }}
+
+      - name: Get Web App URL
+        run: |
+          WEBAPP_URL=$(az webapp show --name ${{ steps.get-webapp.outputs.webapp_name }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query defaultHostName -o tsv)
+          echo "Web App URL: https://$WEBAPP_URL"

@@ -1,0 +1,61 @@
+# .dockerignore for ZavaStorefront
+
+# Git
+.git
+.gitignore
+.github
+
+# Documentation
+*.md
+LICENSE
+SECURITY.md
+SUPPORT.md
+
+# Build outputs
+bin/
+obj/
+out/
+publish/
+
+# VS Code
+.vscode/
+.history/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Rider
+.idea/
+
+# Test results
+TestResults/
+coverage/
+
+# Logs
+*.log
+logs/
+
+# Environment files
+.env
+.env.*
+
+# Node modules (if any)
+node_modules/
+
+# Azure
+.azure/
+infra/
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+desktop.ini
